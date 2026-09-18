@@ -45,7 +45,15 @@ app.use('/api', buildRoutes(db));
 
 // الواجهة (نفس السيرفر — لا حاجة لسيرفر منفصل)
 const WEB = path.join(__dirname, '..');
-app.use(express.static(WEB, { extensions: ['html'] }));
+// كاش قصير للأصول (دقيقة) عشان أي نشر يوصل بسرعة حتى مع Cloudflare، وبدون كاش للـ HTML
+app.use(express.static(WEB, {
+  extensions: ['html'],
+  maxAge: 0,
+  setHeaders(res, file) {
+    if (file.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    else res.setHeader('Cache-Control', 'public, max-age=60, must-revalidate');
+  }
+}));
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) return next();
   res.sendFile(path.join(WEB, 'index.html'));
