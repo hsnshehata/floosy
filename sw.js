@@ -1,5 +1,5 @@
 /* فلوسي — Service Worker: التطبيق يشتغل أوفلاين من على الموبايل */
-const CACHE = 'floosy-v2';
+const CACHE = 'floosy-v3';
 const SHELL = [
   './', 'index.html', 'manifest.json',
   'tw.css', 'styles.css', 'app.js', 'api.js',
@@ -35,6 +35,21 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   // الـ API دائمًا من الشبكة (الطابور في الواجهة مسؤول عن الأوفلاين)
   if (url.pathname.startsWith('/api')) return;
+  // التنقل (HTML): الشبكة أولًا عشان الصفحة طازة بعد كل نشر — والكاش احتياطي أوفلاين
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).then((res) => {
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, copy));
+        }
+        return res;
+      }).catch(() => caches.match(e.request, { ignoreSearch: true }).then((h) => h || caches.match('index.html')))
+    );
+    return;
+  }
+  // باقي ملفات الواجهة: الكاش أولًا للسرعة + تحديث في الخلفية (stale-while-revalidate)
+  // كده أي نشر جديد يوصل تلقائيًا من غير تحديث يدوي
   e.respondWith(
     caches.match(e.request, { ignoreSearch: true }).then((hit) => {
       const net = fetch(e.request).then((res) => {
@@ -43,7 +58,7 @@ self.addEventListener('fetch', (e) => {
           caches.open(CACHE).then((c) => c.put(e.request, copy));
         }
         return res;
-      }).catch(() => hit || (e.request.mode === 'navigate' ? caches.match('index.html') : undefined));
+      }).catch(() => hit);
       return hit || net;
     })
   );
