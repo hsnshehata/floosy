@@ -133,31 +133,48 @@ function paintSettings(){
   if($('setCurrency')) $('setCurrency').value = DB.settings.currency||'ج.م';
 }
 
-// دخول السحابة: تحميل السلة النشطة ثم العرض
+// دخول السحابة: حمّل الأساس (سيرفر/كاش) + ادمج طابور الأوفلاين فوقه + ارفع في الخلفية
 async function enterCloud(){
   hideLogin();
   if(!Api.activeId && Api.accounts.length){
     Api.activeId = Api.accounts[0].id;
     localStorage.setItem('floosy_account', Api.activeId);
   }
+  let base = null, fromServer = false;
   try {
     const s = await Api.loadSnapshot(Api.activeId);
-    if(s.data && Object.keys(s.data).length) applySnapshot(s.data);
-    else { // سلة فاضية على السيرفر — ابنِ بيانات تجريبية أول مرة فقط
-      if(!localStorage.getItem('floosy_seeded_'+Api.activeId)){
-        const smp = sampleData();
-        applySnapshot({ txs:smp.txs, projects:smp.projects, budgets:smp.budgets, reminders:smp.reminders, debts:smp.debts, cats:DB.cats, settings:DB.settings });
-        await Api.pushNow(Api.activeId, snapshotOf(DB));
-        localStorage.setItem('floosy_seeded_'+Api.activeId,'1');
-      }
-    }
-  } catch(e) {
-    // السيرفر وقع؟ اشتغل من الكاش المحلي (قراءة) — والحفظ هيتحاول تلقائيًا
+    if(s.data && Object.keys(s.data).length){ base = s.data; fromServer = true; Api.online = true; }
+  } catch(e){ Api.online = false; }
+  if(!base){
     const c = Api.cached(Api.activeId);
-    if(c) { applySnapshot(c); Api.online = false; Api.dirty = true; toast('📡 السيرفر غير متاح — شغال من نسخة الجهاز مؤقتًا'); }
+    if(c && Object.keys(c).length){ base = c; if(!fromServer) toast('📡 شغال من نسخة الجهاز — هتترفع أول ما النت يرجع'); }
+  }
+  if(base) applySnapshot(base);
+  else if(!localStorage.getItem('floosy_seeded_'+Api.activeId)){
+    // سلة فاضية تمامًا — ابنِ بيانات تجريبية أول مرة فقط
+    const smp = sampleData();
+    applySnapshot({ txs:smp.txs, projects:smp.projects, budgets:smp.budgets, reminders:smp.reminders, debts:smp.debts, cats:DB.cats, settings:DB.settings });
+    localStorage.setItem('floosy_seeded_'+Api.activeId,'1');
+    save();
+  }
+  // دمج عمليات الطابور المعلقة فوق الأساس (شغلك الأوفلاين يظهر فورًا)
+  const ops = Api.outbox.filter(e=>e.accountId===Api.activeId).flatMap(e=>e.ops);
+  if(ops.length){
+    const cur = snapshotOf(DB);
+    const merged = Api.applyOps({ txs:cur.txs, projects:cur.projects, budgets:cur.budgets, reminders:cur.reminders, debts:cur.debts, cats:cur.cats }, ops);
+    applySnapshot({ ...merged, settings: cur.settings });
   }
   paintSettings(); renderAll(); updateConnBadge();
+  Api.flushAll();
   if(typeof renderAccounts === 'function' && !$('tab-accounts').classList.contains('hidden')) renderAccounts();
+}
+// مزامنة يدوية + مسح الطابور (من الإعدادات)
+async function manualSync(){ toast('🔄 جارٍ المزامنة...'); const r = await Api.flushAll(); renderAll(); if(r.total) toast(`☁️ اترفع ${r.total} عملية ✅`); else if(Api.online) toast('✅ كله متزامن — مفيش حاجة مستنية'); }
+function clearQueue(){
+  const n = Api.queueCount();
+  if(!n) return toast('الطابور فاضي أصلًا');
+  if(!confirm(`هتمسح ${n} عملية مستنية الرفع نهائيًا (شغلك المحلي هيفضل على الجهاز). متأكد؟`)) return;
+  Api.outbox = []; Api.persistOutbox(); renderAll(); toast('🗑️ اتمسح الطابور');
 }
 
 function applyTheme(){ document.documentElement.classList.toggle('dark', DB.settings.theme==='dark'); $('themeBtn').textContent = DB.settings.theme==='dark'?'☀️':'🌙'; }
@@ -350,7 +367,7 @@ function txRow(t){
       <div class="font-bold truncate">${esc(t.note)||c.name}</div>
       <div class="text-xs text-slate-500 truncate">${c.name}${p?' • '+p.icon+' '+esc(p.name):''} • ${fmtDate(t.date)}${t.method?' • '+esc(t.method):''}</div>
     </div>
-    <div class="font-black ${neg?'text-red-600':'text-emerald-600'} whitespace-nowrap">${neg?'−':'+'}${fmt(t.amount)}</div>
+    <div class="font-black text-sm md:text-base ${neg?'text-red-600':'text-emerald-600'} whitespace-nowrap">${neg?'−':'+'}${fmt(t.amount)}</div>
     <button onclick="delTx('${t.id}')" class="text-slate-300 hover:text-red-500 text-lg no-print">×</button>
   </div>`;
 }
@@ -537,11 +554,18 @@ async function doLogin(){
 }
 function updateConnBadge(){
   const b=$('connBadge'); if(!b) return;
-  if(!REMOTE){ b.innerHTML='📱 وضع محلي'; b.className='text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'; return; }
-  if(!Api.online){ b.innerHTML='🔴 أوفلاين — حفظ مؤقت'; b.className='text-[11px] font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-600'; }
-  else { const a=(Api.accounts||[]).find(x=>x.id===Api.activeId); b.innerHTML='🟢 '+(a?esc(a.name):'متصل')+' • ☁️ محفوظ'; b.className='text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'; }
+  if(!REMOTE){ b.innerHTML='📱 وضع محلي'; b.className='text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 max-w-[140px] truncate sm:max-w-none'; return; }
+  const q = Api.queueCount();
+  if(!Api.online){ b.innerHTML=`🔴 أوفلاين${q?' • 📥 '+q+' مستنية':''}`; b.className='text-[11px] font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-600 max-w-[140px] truncate sm:max-w-none'; }
+  else if(q){ b.innerHTML=`📥 ${q} في الطابور — بتترفع...`; b.className='text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 max-w-[140px] truncate sm:max-w-none'; }
+  else { const a=(Api.accounts||[]).find(x=>x.id===Api.activeId); b.innerHTML='🟢 '+(a?esc(a.name):'متصل'); b.className='text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 max-w-[140px] truncate sm:max-w-none'; }
   const u=$('userChip');
   if(u) u.innerHTML = REMOTE && Api.user ? `👤 ${esc(Api.user.username)} <button onclick="Api.logout()" class="underline text-red-400 text-[11px]">خروج</button>` : '';
+  const qi=$('queueInfo');
+  if(qi){
+    if(!REMOTE) qi.textContent = 'وضع محلي — البيانات على هذا الجهاز فقط.';
+    else { const q2=Api.queueCount(); qi.textContent = q2 ? `📥 ${q2} عملية مستنية النت — هتترفع تلقائيًا أول ما يرجع.` : '✅ كل حاجة مرفوعة ومتزامنة.'; }
+  }
 }
 async function switchAccount(id){
   Api.activeId = Number(id); localStorage.setItem('floosy_account', Api.activeId);

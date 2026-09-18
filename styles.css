@@ -1,6 +1,16 @@
 *{font-family:'Cairo',sans-serif}
 /* حماية حرجة: لا تعتمد على أي مكتبة خارجية لإخفاء العناصر وبوابة الدخول */
 .hidden{display:none!important}
+html,body{overflow-x:clip;max-width:100%}
+.stat-card{min-width:0;overflow:hidden}
+.card{min-width:0}
+.tx-row{min-width:0}
+/* الموبايل: منع زوم iOS التلقائي + تصغير عناصر التنقل السفلي */
+@media (max-width:640px){
+  .input,.input-sm{font-size:16px}
+  .mnav{font-size:10px;line-height:1.4;min-width:0;overflow:hidden}
+  .stat-card{padding:.8rem .9rem}
+}
 #loginOverlay{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:1rem;
   background:linear-gradient(to bottom left,#4c1d95,#0f172a,#701a75)}
 #loginOverlay.hidden{display:none!important}

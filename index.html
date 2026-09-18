@@ -7,6 +7,11 @@
 <meta name="description" content="فلوسي - تطبيق عربي عصري لتتبع المصاريف، المشاريع مثل توضيب الشقة، الميزانيات، الديون، والتذكيرات بالمستحقات" />
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#6d28d9" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="فلوسي" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
 <link rel="stylesheet" href="fonts/cairo-face.css" />
 <link rel="stylesheet" href="tw.css" />
 <link rel="stylesheet" href="styles.css" />
@@ -23,7 +28,7 @@
 
 <!-- الهيدر -->
 <header class="sticky top-0 z-40 backdrop-blur-xl bg-white/80 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800">
-  <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
+  <div class="max-w-7xl mx-auto px-3 sm:px-4 py-3 flex items-center gap-2 flex-wrap">
     <div class="flex items-center gap-3">
       <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-600 to-fuchsia-600 flex items-center justify-center text-white text-2xl font-black shadow-soft">ف</div>
       <div>
@@ -32,15 +37,15 @@
       </div>
     </div>
     <div class="flex-1"></div>
-    <span id="connBadge" class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">...</span>
+    <span id="connBadge" class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 max-w-[120px] sm:max-w-none truncate">...</span>
     <span id="userChip" class="text-xs font-bold hidden md:inline"></span>
     <div class="hidden md:flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-xl px-3 py-2 w-72">
       <span>🔍</span>
       <input id="globalSearch" placeholder="دوّر على أي مصروف..." class="bg-transparent outline-none text-sm w-full" />
     </div>
-    <select id="monthFilter" class="text-sm bg-slate-100 dark:bg-slate-800 rounded-xl px-3 py-2 outline-none cursor-pointer"></select>
-    <button id="themeBtn" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xl hover:scale-105 transition" title="ليلي / نهاري">🌙</button>
-    <button onclick="openModal('txModal')" class="bg-gradient-to-l from-brand-600 to-fuchsia-600 text-white font-bold px-4 md:px-6 py-2.5 rounded-xl shadow-soft hover:opacity-90 transition text-sm md:text-base">＋ أضف مصروف</button>
+    <select id="monthFilter" class="text-xs sm:text-sm bg-slate-100 dark:bg-slate-800 rounded-xl px-2 sm:px-3 py-2 outline-none cursor-pointer max-w-[110px] sm:max-w-none truncate"></select>
+    <button id="themeBtn" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xl hover:scale-105 transition shrink-0" title="ليلي / نهاري">🌙</button>
+    <button onclick="openModal('txModal')" class="bg-gradient-to-l from-brand-600 to-fuchsia-600 text-white font-bold px-3 sm:px-6 py-2.5 rounded-xl shadow-soft hover:opacity-90 transition text-sm md:text-base whitespace-nowrap">＋ <span class="hidden sm:inline">أضف مصروف</span></button>
   </div>
   <!-- تبويبات -->
   <nav class="max-w-7xl mx-auto px-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar text-sm font-bold">
@@ -94,7 +99,7 @@
             <h3 class="font-black text-lg">📈 حركة الصرف آخر 6 شهور</h3>
             <span class="text-xs text-slate-500">مصروف vs دخل</span>
           </div>
-          <div class="h-64"><canvas id="trendChart"></canvas></div>
+          <div class="h-56 sm:h-64"><canvas id="trendChart"></canvas></div>
         </div>
         <div class="card">
           <div class="flex items-center justify-between mb-3">
@@ -207,9 +212,9 @@
     <h2 class="text-2xl font-black mb-1">📊 التقارير والتحليلات</h2>
     <p class="text-sm text-slate-500 mb-4">اعرف فلوسك بتروح فين بالقرش</p>
     <div class="grid lg:grid-cols-2 gap-4">
-      <div class="card"><h3 class="font-black mb-2">المصروف حسب الفئة (الشهر المختار)</h3><div class="h-64"><canvas id="repCatChart"></canvas></div></div>
+      <div class="card"><h3 class="font-black mb-2">المصروف حسب الفئة (الشهر المختار)</h3><div class="h-56 sm:h-64"><canvas id="repCatChart"></canvas></div></div>
       <div class="card"><h3 class="font-black mb-2">أعلى الفئات صرفًا</h3><div id="topCats" class="space-y-2"></div></div>
-      <div class="card"><h3 class="font-black mb-2">مقارنة شهرية (6 شهور)</h3><div class="h-64"><canvas id="repTrendChart"></canvas></div></div>
+      <div class="card"><h3 class="font-black mb-2">مقارنة شهرية (6 شهور)</h3><div class="h-56 sm:h-64"><canvas id="repTrendChart"></canvas></div></div>
       <div class="card"><h3 class="font-black mb-2">المصروف حسب المشروع</h3><div id="projReport" class="space-y-2"></div></div>
     </div>
   </section>
@@ -249,6 +254,15 @@
           <button onclick="changeMyPassword()" class="bg-brand-600 text-white px-5 py-2 rounded-xl font-bold w-full">تغيير 🔑</button>
         </div>
         <button onclick="importLocalToCloud()" class="btn-ghost w-full mt-2">☁️ رفع بيانات هذا الجهاز للسلة</button>
+        <div class="bg-slate-50 dark:bg-slate-800 rounded-xl p-3 mt-2">
+          <div class="font-black text-sm mb-1">📥 طابور الأوفلاين</div>
+          <p id="queueInfo" class="text-xs text-slate-500 mb-2">—</p>
+          <div class="flex gap-2">
+            <button onclick="manualSync()" class="btn-ghost flex-1">🔄 مزامنة الآن</button>
+            <button onclick="clearQueue()" class="btn-ghost">🗑️ مسح الطابور</button>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-2">التطبيق شغال من غير نت عادي — أي إضافة بتتخزن في الطابور على جهازك وتترفع لوحدها أول ما النت يرجع، حتى لو قفلت التطبيق وفتحته.</p>
+        </div>
       </div>
       <div class="card">
         <h3 class="font-black mb-3">💾 النسخ الاحتياطي</h3>
@@ -277,7 +291,7 @@
       </div>
       <div class="card md:col-span-2">
         <h3 class="font-black mb-2">ℹ️ عن فلوسي</h3>
-        <p class="text-sm text-slate-500 leading-relaxed">فلوسي تطبيق ويب عربي (يعمل أوفلاين) مستوحى من أفضل ما في YNAB و Monefy و Wallet و PocketGuard والتطبيقات العربية: تسجيل بضغطة، مشاريع وأظرف، ميزانيات بحدود، تذكيرات بالمستحقات، ديون، تقارير بصرية، وتصدير للبيانات. بياناتك محفوظة على جهازك فقط (LocalStorage) — خصوصية كاملة بدون حسابات.</p>
+        <p class="text-sm text-slate-500 leading-relaxed">فلوسي تطبيق عربي خاص شغال على سيرفرك: دخول آمن بحساب وكلمة مرور، سلال مشتركة للعيلة والشركاء (كل سلة لها أعضاؤها وبيسجلوا فيها مع بعض)، مشاريع وأظرف، ميزانيات بحدود، تذكيرات بالمستحقات، ديون، تقارير بصرية وتصدير للبيانات. البيانات محفوظة في قاعدة على سيرفرك الخاص فقط — لا تسجيل عام ولا مشاركة مع أي طرف ثالث.</p>
       </div>
     </div>
   </section>
@@ -386,7 +400,7 @@
   </div>
 </div>
 
-<div id="toast" class="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-[100] hidden bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-5 py-3 rounded-2xl font-bold shadow-2xl text-sm"></div>
+<div id="toast" class="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-[100] hidden bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-5 py-3 rounded-2xl font-bold shadow-2xl text-sm max-w-[92vw] text-center"></div>
 
 <!-- شاشة الدخول (السيرفر الخاص فقط) -->
 <div id="loginOverlay" class="hidden fixed inset-0 z-[90] bg-gradient-to-br from-brand-900 via-slate-900 to-fuchsia-900 flex items-center justify-center p-4">
@@ -403,6 +417,12 @@
 </div>
 
 <script src="vendor/chart.umd.min.js"></script>
+<script>
+// تسجيل Service Worker (يعمل على https أو localhost فقط — يتجاهل file://)
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
 <script src="api.js"></script>
 <script src="app.js"></script>
 </body>

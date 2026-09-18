@@ -68,29 +68,142 @@ const Api = {
     return r.json();
   },
 
-  // حفظ فوري مع debouncing — والكاش المحلي يتحدث دائمًا
+  // ---- حفظ: كاش فوري + طابور عمليات ----
   queueSave(accountId, data) {
     try { localStorage.setItem('floosy_cache_' + accountId, JSON.stringify({ data, at: Date.now() })); } catch (e) {}
-    clearTimeout(this._saveTimer);
-    this._saveTimer = setTimeout(() => this.pushNow(accountId, data), 900);
+    this.enqueueFor(accountId, data);
+    this.scheduleFlush();
   },
 
-  async pushNow(accountId, data) {
+  // ============ طابور الأوفلاين (outbox) ============
+  // كل تعديل يتحول لعمليات (add/del/set لكل عنصر) وتتخزن على الجهاز،
+  // وأول ما النت يرجع تندمج فوق نسخة السيرفر بالترتيب وتترفع.
+  outbox: JSON.parse(localStorage.getItem('floosy_outbox') || '[]'),
+  synced: JSON.parse(localStorage.getItem('floosy_synced') || '{}'),
+  _flushTimer: null,
+  _flushing: false,
+  COLL: ['txs', 'projects', 'budgets', 'reminders', 'debts', 'cats'],
+
+  persistOutbox() {
     try {
+      localStorage.setItem('floosy_outbox', JSON.stringify(this.outbox.slice(-500)));
+      localStorage.setItem('floosy_synced', JSON.stringify(this.synced));
+    } catch (e) {}
+    if (typeof updateConnBadge === 'function') updateConnBadge();
+  },
+
+  emptySnap() { return { txs: [], projects: [], budgets: [], reminders: [], debts: [], cats: [] }; },
+
+  diffSnaps(oldS, newS) {
+    const ops = [];
+    for (const c of this.COLL) {
+      const a = new Map((oldS[c] || []).map(x => [x.id, x]));
+      const b = new Map((newS[c] || []).map(x => [x.id, x]));
+      for (const [id, obj] of b) {
+        if (!a.has(id)) ops.push({ c, a: 'add', id, o: obj });
+        else if (JSON.stringify(a.get(id)) !== JSON.stringify(obj)) ops.push({ c, a: 'set', id, o: obj });
+      }
+      for (const id of a.keys()) if (!b.has(id)) ops.push({ c, a: 'del', id });
+    }
+    return ops;
+  },
+
+  applyOps(snap, ops) {
+    const s = JSON.parse(JSON.stringify(snap));
+    for (const k of this.COLL) if (!Array.isArray(s[k])) s[k] = [];
+    for (const op of ops) {
+      const arr = s[op.c];
+      const i = arr.findIndex(x => x.id === op.id);
+      if (op.a === 'del') { if (i >= 0) arr.splice(i, 1); }
+      else { if (i >= 0) arr[i] = op.o; else arr.push(op.o); }
+    }
+    return s;
+  },
+
+  enqueueFor(accountId, data) {
+    let oldS = this.emptySnap();
+    try { if (this.synced[accountId]) oldS = { ...this.emptySnap(), ...JSON.parse(this.synced[accountId]) }; } catch (e) {}
+    const news = { ...this.emptySnap() };
+    for (const c of this.COLL) news[c] = data[c] || [];
+    const ops = this.diffSnaps(oldS, news);
+    if (!ops.length) return 0;
+    this.outbox.push({ qid: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ts: Date.now(), accountId, ops });
+    // ضغط: آخر عملية لكل عنصر هي اللي تفضل
+    const seen = new Set();
+    const compact = [];
+    const flat = [];
+    for (const e of this.outbox) for (const op of e.ops) flat.push({ ...op, accountId: e.accountId, ts: e.ts });
+    for (let i = flat.length - 1; i >= 0; i--) {
+      const k = flat[i].accountId + '|' + flat[i].c + '|' + flat[i].id;
+      if (!seen.has(k)) { seen.add(k); compact.unshift(flat[i]); }
+    }
+    const byAcc = {};
+    for (const op of compact) { (byAcc[op.accountId] = byAcc[op.accountId] || []).push(op); }
+    this.outbox = Object.entries(byAcc).map(([accountId, ops2]) => ({ qid: 'c', ts: Date.now(), accountId: Number(accountId), ops: ops2 }));
+    this.persistOutbox();
+    return ops.length;
+  },
+
+  queueCount(accountId) {
+    return this.outbox.reduce((n, e) => n + ((accountId && e.accountId !== accountId) ? 0 : e.ops.length), 0);
+  },
+
+  scheduleFlush(ms = 1200) {
+    clearTimeout(this._flushTimer);
+    this._flushTimer = setTimeout(() => this.flushAll(), ms);
+  },
+
+  async flushAccount(accountId) {
+    const ops = this.outbox.filter(e => e.accountId === accountId).flatMap(e => e.ops);
+    try {
+      const s = await this.loadSnapshot(accountId);
+      let base = (s.data && Object.keys(s.data).length) ? s.data : (this.cached(accountId) || {});
+      base = { ...this.emptySnap(), ...(base || {}) };
+      const merged = this.applyOps(base, ops);
       const r = await fetch('api/sync?account_id=' + accountId, {
-        method: 'PUT', headers: this.headers(), body: JSON.stringify({ data })
+        method: 'PUT', headers: this.headers(), body: JSON.stringify({ data: { ...merged, settings: (this.cached(accountId) || {}).settings || {} } })
       });
       if (r.status === 401) throw new Error('unauthorized');
       if (!r.ok) throw new Error('save_failed');
+      this.outbox = this.outbox.filter(e => e.accountId !== accountId);
+      this.synced[accountId] = JSON.stringify(merged);
       this.online = true; this.dirty = false;
-      if (typeof updateConnBadge === 'function') updateConnBadge();
-      return true;
+      this.persistOutbox();
+      return { ok: true, n: ops.length };
     } catch (e) {
-      if (String(e.message) === 'unauthorized') { this.logout(); return false; }
+      if (String(e.message) === 'unauthorized') { this.logout(); return { ok: false }; }
       this.online = false; this.dirty = true;
-      if (typeof updateConnBadge === 'function') updateConnBadge();
-      return false;
+      this.persistOutbox();
+      return { ok: false };
     }
+  },
+
+  async flushAll() {
+    if (!this.server || !this.token || this._flushing) return { ok: false };
+    this._flushing = true;
+    try {
+      const accs = [...new Set(this.outbox.map(e => e.accountId))];
+      if (this.activeId && !accs.includes(this.activeId)) accs.unshift(this.activeId);
+      let total = 0;
+      for (const id of accs) {
+        if (!id) continue;
+        const r = await this.flushAccount(id);
+        if (!r.ok) break;
+        total += r.n || 0;
+      }
+      // حدّث آخر نسخة متزامنة للسلة النشطة حتى لو مفيش عمليات
+      if (this.activeId && typeof DB !== 'undefined' && this.online) {
+        this.synced[this.activeId] = JSON.stringify({ txs: DB.txs, projects: DB.projects, budgets: DB.budgets, reminders: DB.reminders, debts: DB.debts, cats: DB.cats });
+        this.persistOutbox();
+      }
+      if (total > 0 && typeof toast === 'function') toast(`☁️ اترفع ${total} عملية كانت مستنية النت ✅`);
+      return { ok: true, total };
+    } finally { this._flushing = false; }
+  },
+
+  async pushNow(accountId, data) {
+    this.queueSave(accountId, data);
+    return this.flushAll();
   },
 
   cached(accountId) {
@@ -137,12 +250,7 @@ const Api = {
   }
 };
 
-// إعادة محاولة الحفظ المعلق كل 20 ثانية
-setInterval(async () => {
-  if (Api.server && Api.token && Api.dirty && typeof DB !== 'undefined') {
-    await Api.pushNow(Api.activeId, snapshotOf(DB));
-  }
-}, 20000);
-window.addEventListener('online', () => {
-  if (Api.server && Api.token && Api.dirty && typeof DB !== 'undefined') Api.pushNow(Api.activeId, snapshotOf(DB));
-});
+// إعادة محاولة رفع الطابور كل 20 ثانية + لحظة رجوع النت + تغيير الشبكة
+setInterval(() => { if (Api.server && Api.token) Api.flushAll(); }, 20000);
+window.addEventListener('online', () => { if (typeof toast === 'function') toast('🌐 النت رجع — جارٍ رفع الطابور...'); Api.flushAll(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && Api.server && Api.token) Api.flushAll(); });
