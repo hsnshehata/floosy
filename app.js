@@ -485,6 +485,7 @@ function renderSettingsCats(){ $('catsManager').innerHTML=DB.cats.map(c=>`<span 
 // --- رسوم ---
 function killChart(id){ if(charts[id]){charts[id].destroy();delete charts[id];} }
 function renderCharts(){
+  if(typeof Chart === 'undefined'){ $('catLegend').innerHTML = '<p class="text-xs text-slate-400">الرسوم غير متاحة (مكتبة الرسوم محجوبة)</p>'; return; }
   const list=monthTxs().filter(t=>t.type==='expense');
   const by={}; list.forEach(t=>by[t.cat]=(by[t.cat]||0)+ +t.amount);
   const labels=Object.keys(by).map(id=>catOf(id).name), vals=Object.values(by);
@@ -501,6 +502,7 @@ function renderCharts(){
   if($('trendChart')) charts.trend=new Chart($('trendChart'),{type:'bar',data:{labels:months.map(m=>new Date(m+'-02').toLocaleDateString('ar-EG',{month:'short'})),datasets:[{label:'مصروف',data:eD,backgroundColor:'#f43f5e',borderRadius:8},{label:'دخل',data:iD,backgroundColor:'#10b981',borderRadius:8}]},options:{plugins:{legend:{labels:{color:dark?'#e2e8f0':'#475569'}}},scales:{x:{ticks:{color:dark?'#94a3b8':'#64748b'}},y:{ticks:{color:dark?'#94a3b8':'#64748b'}}}}});
 }
 function renderReports(){
+  if(typeof Chart === 'undefined'){ $('topCats').innerHTML = 'الرسوم غير متاحة'; return; }
   killChart('rc');killChart('rt');
   const list=monthTxs().filter(t=>t.type==='expense');
   const by={};list.forEach(t=>by[t.cat]=(by[t.cat]||0)+ +t.amount);

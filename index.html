@@ -7,24 +7,8 @@
 <meta name="description" content="فلوسي - تطبيق عربي عصري لتتبع المصاريف، المشاريع مثل توضيب الشقة، الميزانيات، الديون، والتذكيرات بالمستحقات" />
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#6d28d9" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-tailwind.config = {
-  darkMode: 'class',
-  theme: {
-    extend: {
-      fontFamily: { cairo: ['Cairo','sans-serif'] },
-      colors: {
-        brand: {50:'#f5f3ff',100:'#ede9fe',200:'#ddd6fe',300:'#c4b5fd',400:'#a78bfa',500:'#8b5cf6',600:'#7c3aed',700:'#6d28d9',800:'#5b21b6',900:'#4c1d95'}
-      },
-      boxShadow: { soft: '0 10px 40px -12px rgba(109,40,217,.25)', card: '0 4px 24px -6px rgba(0,0,0,.08)' }
-    }
-  }
-}
-</script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="fonts/cairo-face.css" />
+<link rel="stylesheet" href="tw.css" />
 <link rel="stylesheet" href="styles.css" />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='24' fill='%236d28d9'/><text x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>ف</text></svg>" />
 </head>
@@ -418,6 +402,7 @@ tailwind.config = {
   </div>
 </div>
 
+<script src="vendor/chart.umd.min.js"></script>
 <script src="api.js"></script>
 <script src="app.js"></script>
 </body>

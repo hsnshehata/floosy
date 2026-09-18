@@ -61,8 +61,11 @@ python -m http.server 8080
 
 ## 🛠️ التقنيات
 
-- HTML + TailwindCSS (CDN) + Chart.js — بدون build
-- Vanilla JS + LocalStorage — أوفلاين أولًا
+- HTML + TailwindCSS (مبني محليًا `tw.css` — بدون CDN) + Chart.js (محلي `vendor/`) — بدون build للتشغيل
+- خط Cairo مستضاف محليًا (`fonts/`) — التطبيق يعمل **أوفلاين بالكامل** بدون أي طلب خارجي
+- Vanilla JS + LocalStorage — أوفلاين أولًا (الوضع المحلي)
+
+> عند تعديل كلاسات Tailwind في `index.html`/`app.js`: نفّذ `npm run build:css` ثم ارفع `tw.css` مع التعديل.
 - خط Cairo + عربي RTL كامل
 - PWA-ready (`manifest.json`)
 
