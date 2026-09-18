@@ -17,4 +17,8 @@ ENV NODE_ENV=production \
 VOLUME ["/app/data"]
 EXPOSE 3000
 
+# فحص صحة للحاويات (Coolify/Docker)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:3000/api/health | grep -q '"ok":true'
+
 CMD ["node", "server/server.js"]
