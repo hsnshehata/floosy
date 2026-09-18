@@ -24,8 +24,8 @@ html:not(.dark) .text-slate-500{color:#475569!important}
 #loginOverlay.hidden{display:none!important}
 .no-scrollbar::-webkit-scrollbar{display:none}
 .no-scrollbar{scrollbar-width:none}
-.card{background:#fff;border-radius:1.25rem;padding:1.1rem 1.25rem;box-shadow:0 4px 24px -6px rgba(0,0,0,.08);border:1px solid #f1f5f9}
-.dark .card{background:#0f172a;border-color:#1e293b}
+.card{background-color:#fff;border-radius:1.25rem;padding:1.1rem 1.25rem;box-shadow:0 4px 24px -6px rgba(0,0,0,.08);border:1px solid #f1f5f9}
+.dark .card{background-color:#0f172a;border-color:#1e293b}
 .stat-card{border-radius:1.25rem;padding:1rem 1.2rem;box-shadow:0 10px 40px -12px rgba(109,40,217,.25)}
 .tabBtn{white-space:nowrap;padding:.5rem 1rem;border-radius:.8rem;background:#f1f5f9;color:#475569;transition:.2s}
 .dark .tabBtn{background:#1e293b;color:#cbd5e1}
