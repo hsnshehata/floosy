@@ -33,7 +33,6 @@
       <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-600 to-fuchsia-600 flex items-center justify-center text-white text-2xl font-black shadow-soft">ف</div>
       <div>
         <h1 class="text-xl font-black leading-none">فلوسي</h1>
-        <p class="text-xs text-slate-500 dark:text-slate-400">كل قرش محسوب 💰</p>
       </div>
     </div>
     <div class="flex-1"></div>
@@ -43,9 +42,8 @@
       <span>🔍</span>
       <input id="globalSearch" placeholder="دوّر على أي مصروف..." class="bg-transparent outline-none text-sm w-full" />
     </div>
-    <select id="monthFilter" class="text-xs sm:text-sm bg-slate-100 dark:bg-slate-800 rounded-xl px-2 sm:px-3 py-2 outline-none cursor-pointer max-w-[110px] sm:max-w-none truncate"></select>
     <button id="themeBtn" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xl hover:scale-105 transition shrink-0" title="ليلي / نهاري">🌙</button>
-    <button onclick="openModal('txModal')" class="bg-gradient-to-l from-brand-600 to-fuchsia-600 text-white font-bold px-3 sm:px-6 py-2.5 rounded-xl shadow-soft hover:opacity-90 transition text-sm md:text-base whitespace-nowrap">＋ <span class="hidden sm:inline">أضف مصروف</span></button>
+    <button id="topAddBtn" onclick="openModal('txModal')" class="bg-gradient-to-l from-brand-600 to-fuchsia-600 text-white font-bold px-3 sm:px-6 py-2.5 rounded-xl shadow-soft hover:opacity-90 transition text-sm md:text-base whitespace-nowrap">＋ <span class="hidden sm:inline">أضف مصروف</span></button>
   </div>
   <!-- تبويبات -->
   <nav class="max-w-7xl mx-auto px-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar text-sm font-bold">
@@ -209,8 +207,16 @@
 
   <!-- ===== التقارير ===== -->
   <section id="tab-reports" class="tabPage hidden">
-    <h2 class="text-2xl font-black mb-1">📊 التقارير والتحليلات</h2>
-    <p class="text-sm text-slate-500 mb-4">اعرف فلوسك بتروح فين بالقرش</p>
+    <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
+      <div>
+        <h2 class="text-2xl font-black">📊 التقارير والتحليلات</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400">اعرف فلوسك بتروح فين بالقرش</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="font-black text-sm">📅 شهر التقرير:</label>
+        <select id="monthFilter" class="input-sm font-bold"></select>
+      </div>
+    </div>
     <div class="grid lg:grid-cols-2 gap-4">
       <div class="card"><h3 class="font-black mb-2">المصروف حسب الفئة (الشهر المختار)</h3><div class="h-56 sm:h-64"><canvas id="repCatChart"></canvas></div></div>
       <div class="card"><h3 class="font-black mb-2">أعلى الفئات صرفًا</h3><div id="topCats" class="space-y-2"></div></div>

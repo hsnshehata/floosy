@@ -11,6 +11,14 @@ html,body{overflow-x:clip;max-width:100%}
   .mnav{font-size:10px;line-height:1.4;min-width:0;overflow:hidden}
   .stat-card{padding:.8rem .9rem}
 }
+/* زرار الإضافة العلوي مخفي على الموبايل (موجود في القايمة السفلية) */
+@media (max-width:767px){
+  #topAddBtn{display:none}
+}
+/* تباين أوضح للنصوص الباهتة في الوضع الفاتح */
+html:not(.dark) .text-slate-400{color:#5b6b82!important}
+html:not(.dark) .text-slate-500{color:#475569!important}
+#smartTip{opacity:1!important;font-weight:700}
 #loginOverlay{position:fixed;inset:0;z-index:90;display:flex;align-items:center;justify-content:center;padding:1rem;
   background:linear-gradient(to bottom left,#4c1d95,#0f172a,#701a75)}
 #loginOverlay.hidden{display:none!important}
