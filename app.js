@@ -21,7 +21,15 @@ const DEFAULT_CATS = [
   {id:'other-i', name:'دخل إضافي', icon:'💰', type:'income'},
 ];
 
-let DB = load() || seedEmpty();
+let DB = seedEmpty();
+let REMOTE = false; // true = متصل بالسيرفر الخاص (وضع العيلة)، false = وضع محلي على الجهاز
+function snapshotOf(d){ return { txs:d.txs, projects:d.projects, budgets:d.budgets, reminders:d.reminders, debts:d.debts, cats:d.cats, settings:d.settings }; }
+function applySnapshot(s){
+  if(!s || typeof s !== 'object') return;
+  const base = seedEmpty();
+  DB = { txs:s.txs||[], projects:s.projects||[], budgets:s.budgets||[], reminders:s.reminders||[],
+    debts:s.debts||[], cats:(s.cats&&s.cats.length?s.cats:base.cats), settings:{...base.settings,...(s.settings||{})} };
+}
 let txType = 'expense', debtDir = 'owe', selCat = 'home';
 let charts = {};
 let curMonth = monthISO();
@@ -33,7 +41,10 @@ function seedEmpty(){
     settings:{ name:'', currency:'ج.م', monthStart:1, theme:'light' } };
 }
 function load(){ try{ const r=localStorage.getItem(LS_KEY); return r?JSON.parse(r):null }catch(e){return null} }
-function save(){ localStorage.setItem(LS_KEY, JSON.stringify(DB)); }
+function save(){
+  localStorage.setItem(LS_KEY, JSON.stringify(DB)); // نسخة محلية دائمًا
+  if(REMOTE && Api.token && Api.activeId) Api.queueSave(Api.activeId, snapshotOf(DB));
+}
 function fmt(n){ const c=DB.settings.currency||'ج.م'; return Number(n||0).toLocaleString('ar-EG',{maximumFractionDigits:0})+' '+c; }
 function fmtDate(iso){ if(!iso) return ''; try{ return new Date(iso+'T12:00:00').toLocaleDateString('ar-EG',{day:'numeric',month:'short',year:'numeric'}) }catch(e){return iso} }
 function daysUntil(iso){ const t=new Date(); t.setHours(0,0,0,0); const d=new Date(iso+'T12:00:00'); return Math.round((d-t)/86400000); }
@@ -87,19 +98,67 @@ function loadSampleData(confirmIt){
 }
 
 // ---------- تهيئة ----------
-document.addEventListener('DOMContentLoaded', ()=>{
-  applyTheme();
+document.addEventListener('DOMContentLoaded', async ()=>{
+  boot();
+  setInterval(checkRemindersTick, 60000);
+  setTimeout(checkRemindersTick, 3000);
+});
+
+async function boot(){
   buildMonthFilter();
   $('txDate').value = todayISO();
   $('rmDate').value = todayISO();
   $('dbDate').value = todayISO();
-  $('setName').value = DB.settings.name||'';
-  $('setCurrency').value = DB.settings.currency||'ج.م';
-  if(!DB.txs.length && !localStorage.getItem(LS_KEY+'_seen')){ loadSampleData(false); localStorage.setItem(LS_KEY+'_seen','1'); }
-  bindTabs(); renderAll();
-  setInterval(checkRemindersTick, 60000);
-  setTimeout(checkRemindersTick, 3000);
-});
+  bindTabs();
+  const hasServer = await Api.check();
+  if(hasServer){
+    REMOTE = true;
+    if(Api.token){
+      try { await Api.me(); await enterCloud(); }
+      catch(e){ showLogin('الجلسة انتهت — سجل الدخول مرة أخرى'); paintSettings(); renderAll(); }
+    } else { showLogin(''); paintSettings(); renderAll(); }
+  } else {
+    // وضع محلي (GitHub Pages / بدون سيرفر) — نفس سلوك النسخة 1
+    REMOTE = false;
+    DB = load() || seedEmpty();
+    if(!DB.txs.length && !localStorage.getItem(LS_KEY+'_seen')){ loadSampleData(false); localStorage.setItem(LS_KEY+'_seen','1'); }
+    applyTheme(); paintSettings(); renderAll();
+  }
+  updateConnBadge();
+}
+
+function paintSettings(){
+  applyTheme();
+  if($('setName')) $('setName').value = DB.settings.name||'';
+  if($('setCurrency')) $('setCurrency').value = DB.settings.currency||'ج.م';
+}
+
+// دخول السحابة: تحميل السلة النشطة ثم العرض
+async function enterCloud(){
+  hideLogin();
+  if(!Api.activeId && Api.accounts.length){
+    Api.activeId = Api.accounts[0].id;
+    localStorage.setItem('floosy_account', Api.activeId);
+  }
+  try {
+    const s = await Api.loadSnapshot(Api.activeId);
+    if(s.data && Object.keys(s.data).length) applySnapshot(s.data);
+    else { // سلة فاضية على السيرفر — ابنِ بيانات تجريبية أول مرة فقط
+      if(!localStorage.getItem('floosy_seeded_'+Api.activeId)){
+        const smp = sampleData();
+        applySnapshot({ txs:smp.txs, projects:smp.projects, budgets:smp.budgets, reminders:smp.reminders, debts:smp.debts, cats:DB.cats, settings:DB.settings });
+        await Api.pushNow(Api.activeId, snapshotOf(DB));
+        localStorage.setItem('floosy_seeded_'+Api.activeId,'1');
+      }
+    }
+  } catch(e) {
+    // السيرفر وقع؟ اشتغل من الكاش المحلي (قراءة) — والحفظ هيتحاول تلقائيًا
+    const c = Api.cached(Api.activeId);
+    if(c) { applySnapshot(c); Api.online = false; Api.dirty = true; toast('📡 السيرفر غير متاح — شغال من نسخة الجهاز مؤقتًا'); }
+  }
+  paintSettings(); renderAll(); updateConnBadge();
+  if(typeof renderAccounts === 'function' && !$('tab-accounts').classList.contains('hidden')) renderAccounts();
+}
 
 function applyTheme(){ document.documentElement.classList.toggle('dark', DB.settings.theme==='dark'); $('themeBtn').textContent = DB.settings.theme==='dark'?'☀️':'🌙'; }
 $('themeBtn').onclick = ()=>{ DB.settings.theme = DB.settings.theme==='dark'?'light':'dark'; save(); applyTheme(); renderCharts(); };
@@ -122,6 +181,7 @@ function switchTab(name){
   $('tab-'+name).classList.remove('hidden');
   document.querySelectorAll('.mnav').forEach(m=>m.style.color = m.dataset.m===name ? '#7c3aed':'');
   if(name==='reports') renderReports();
+  if(name==='accounts' && typeof renderAccounts==='function') renderAccounts();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
@@ -453,4 +513,130 @@ function renderReports(){
   $('topCats').innerHTML=Object.entries(by).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([c,v])=>{const ct=catOf(c);return `<div><div class="flex justify-between text-sm font-bold"><span>${ct.icon} ${esc(ct.name)}</span><span>${fmt(v)}</span></div><div class="prog mt-1"><div style="width:${(v/tot*100).toFixed(0)}%;background:#7c3aed"></div></div></div>`}).join('')||'—';
   const pb={};DB.txs.filter(t=>t.type==='expense'&&t.project).forEach(t=>pb[t.project]=(pb[t.project]||0)+ +t.amount);
   $('projReport').innerHTML=Object.entries(pb).sort((a,b)=>b[1]-a[1]).map(([pid,v])=>{const p=projOf(pid);if(!p)return '';return `<div class="bg-slate-50 dark:bg-slate-800 rounded-xl p-3 flex justify-between font-bold"><span>${p.icon} ${esc(p.name)}</span><span class="text-red-600">${fmt(v)}</span></div>`}).join('')||'مفيش مصاريف على مشاريع — اربط معاملاتك بمشروع 🏗️';
+}
+
+/* ================= السحابة الخاصة: دخول + حسابات وشركاء ================= */
+function showLogin(msg){
+  const o=$('loginOverlay'); if(!o) return;
+  o.classList.remove('hidden');
+  if($('loginMsg')) $('loginMsg').textContent = msg||'';
+}
+function hideLogin(){ const o=$('loginOverlay'); if(o) o.classList.add('hidden'); }
+async function doLogin(){
+  const u=$('loginUser').value.trim(), p=$('loginPass').value;
+  if(!u||!p){ $('loginMsg').textContent='اكتب اسم المستخدم وكلمة المرور'; return; }
+  $('loginMsg').textContent='جارٍ الدخول...';
+  try { await Api.login(u,p); await enterCloud(); toast('أهلًا '+Api.user.username+' 👋'); }
+  catch(e){
+    const m = e.message==='wrong_credentials' ? 'بيانات الدخول غلط — حاول تاني'
+      : e.message==='too_many_try_later' ? 'محاولات كتير — استنى 10 دقايق' : 'السيرفر غير متاح حاليًا';
+    $('loginMsg').textContent = '⚠️ '+m;
+  }
+}
+function updateConnBadge(){
+  const b=$('connBadge'); if(!b) return;
+  if(!REMOTE){ b.innerHTML='📱 وضع محلي'; b.className='text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'; return; }
+  if(!Api.online){ b.innerHTML='🔴 أوفلاين — حفظ مؤقت'; b.className='text-[11px] font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-600'; }
+  else { const a=(Api.accounts||[]).find(x=>x.id===Api.activeId); b.innerHTML='🟢 '+(a?esc(a.name):'متصل')+' • ☁️ محفوظ'; b.className='text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'; }
+  const u=$('userChip');
+  if(u) u.innerHTML = REMOTE && Api.user ? `👤 ${esc(Api.user.username)} <button onclick="Api.logout()" class="underline text-red-400 text-[11px]">خروج</button>` : '';
+}
+async function switchAccount(id){
+  Api.activeId = Number(id); localStorage.setItem('floosy_account', Api.activeId);
+  curProjectDetail = null;
+  await enterCloud(); toast('🧺 اتنقلت لسلة: '+((Api.accounts.find(a=>a.id===Api.activeId)||{}).name||''));
+}
+async function importLocalToCloud(){
+  if(!REMOTE || !Api.activeId) return toast('لازم تكون متصل بالسيرفر');
+  if(!confirm('هنرفع بيانات الجهاز ده للسلة النشطة على السيرفر (هتدمج مع الموجود). متأكد؟')) return;
+  try{
+    const s = await Api.loadSnapshot(Api.activeId);
+    const srv = (s.data && Object.keys(s.data).length) ? s.data : snapshotOf(seedEmpty());
+    const local = snapshotOf(DB);
+    const merge = (a=[],b=[],k='id')=>{ const seen=new Set(a.map(x=>x[k])); return [...a, ...b.filter(x=>!seen.has(x[k]))]; };
+    const merged = {
+      txs: merge(srv.txs, local.txs), projects: merge(srv.projects, local.projects),
+      budgets: merge(srv.budgets, local.budgets), reminders: merge(srv.reminders, local.reminders),
+      debts: merge(srv.debts, local.debts),
+      cats: merge(srv.cats||[], local.cats),
+      settings: {...(srv.settings||{}), ...(local.settings||{})}
+    };
+    applySnapshot(merged); save();
+    const ok = await Api.pushNow(Api.activeId, snapshotOf(DB));
+    toast(ok ? '☁️ اترفعت واتدمجت بنجاح!' : '⚠️ اتحفظت محليًا وهتترفع تلقائيًا');
+    renderAll();
+  }catch(e){ toast('⚠️ فشل الاستيراد'); }
+}
+async function changeMyPassword(){
+  const o=$('cpOld').value, n=$('cpNew').value;
+  if(!n || n.length<6) return toast('⚠️ الباسورد الجديد 6 حروف على الأقل');
+  try{ await Api.changePassword(o,n); $('cpOld').value='';$('cpNew').value=''; toast('🔑 اتغيرت كلمة المرور!'); }
+  catch(e){ toast(e.message==='wrong_old'?'⚠️ القديمة غلط':'⚠️ فشل التغيير'); }
+}
+const AR_ERR = { username_taken:'الاسم مستخدم قبل كده', weak_password:'باسورد ضعيف (6+ حروف)', partners_limit_5:'الحد الأقصى 5 شركاء للحساب المنفصل', owner_only:'للملك فقط', not_manager:'مش مدير الحساب ده', forbidden:'ممنوع' };
+async function renderAccounts(){
+  const box=$('accountsBox'); if(!box) return;
+  if(!REMOTE){ box.innerHTML='<p class="text-slate-400 text-sm">وضع محلي — إدارة الحسابات متاحة عند الاتصال بالسيرفر الخاص ☁️</p>'; return; }
+  box.innerHTML='<p class="text-slate-400 text-sm">جارٍ التحميل...</p>';
+  try{
+    const ov = await Api.overview();
+    const myAccs = ov.accounts;
+    let h = '<div class="font-black mb-2">🧺 سلالي (دوس للتنقل — السلة الواحدة = مصاريف مشتركة):</div><div class="flex flex-wrap gap-2 mb-4">';
+    h += myAccs.map(a=>`<button onclick="switchAccount(${a.id})" class="px-4 py-2 rounded-xl font-bold text-sm ${a.id===Api.activeId?'bg-brand-600 text-white':'bg-slate-100 dark:bg-slate-800'}">${a.type==='shared'?'🧺':'👤'} ${esc(a.name)} ${a.id===Api.activeId?'✓':''}</button>`).join('')+'</div>';
+    h += myAccs.map(a=>{
+      const canManage = ov.i_am_owner || a.my_role==='owner';
+      let s = `<div class="card mb-3"><div class="flex items-center justify-between flex-wrap gap-2">
+        <div class="font-black text-lg">${a.type==='shared'?'🧺 سلة مشتركة':'👤 حساب منفصل'}: ${esc(a.name)}</div>
+        <div class="text-xs text-slate-500">المدير: ${esc(a.owner_name||'—')} • الأعضاء: ${a.members.length}</div></div>`;
+      s += '<div class="flex flex-wrap gap-2 mt-2">'+a.members.map(m=>
+        `<span class="bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl text-sm font-bold">👤 ${esc(m.username)} ${m.role==='owner'?'<b class="text-brand-600">(مدير)</b>':'<span class="text-slate-400">(شريك)</span>'}${canManage && m.id!==Api.user.id ?` <button onclick="rmMember(${a.id},${m.id})" class="text-red-400">×</button> <button onclick="resetPw(${a.id},${m.id},'${esc(m.username)}')" class="text-amber-500 text-xs">🔑</button>`:''}</span>`).join('')+'</div>';
+      if(canManage){
+        s += `<div class="flex gap-2 mt-3 flex-wrap">
+          <input id="pu-${a.id}" placeholder="اسم الشريك (مثال: أم محمد)" class="input-sm flex-1 min-w-[130px]" />
+          <input id="pp-${a.id}" placeholder="باسورد الشريك" type="password" class="input-sm w-36" />
+          <button onclick="addPartner(${a.id})" class="bg-brand-600 text-white px-4 py-1.5 rounded-xl font-bold text-sm">＋ إضافة شريك</button>
+        </div>
+        <div class="text-[11px] text-slate-400 mt-1">الشريك بيشوف نفس السلة وبيسجل فيها معاك. الحساب المنفصل: حد أقصى 5 شركاء.</div>`;
+      }
+      return s+'</div>';
+    }).join('');
+    if(ov.i_am_owner){
+      h += `<div class="card"><div class="font-black text-lg mb-2">👑 إنشاء حساب جديد (المالك فقط)</div>
+        <div class="flex gap-2 flex-wrap">
+          <input id="na-name" placeholder="اسم الحساب (مثال: بيت أخويا)" class="input-sm flex-1 min-w-[140px]" />
+          <select id="na-type" class="input-sm"><option value="shared">🧺 سلة مشتركة معايا</option><option value="separate">👤 حساب منفصل (بمدير مستقل)</option></select>
+        </div>
+        <div class="flex gap-2 flex-wrap mt-2">
+          <input id="na-ou" placeholder="يوزر مدير الحساب ( للمنفصل فقط — اختياري)" class="input-sm flex-1 min-w-[140px]" />
+          <input id="na-op" placeholder="باسورده" type="password" class="input-sm w-36" />
+          <button onclick="createAccount()" class="bg-emerald-600 text-white px-5 py-1.5 rounded-xl font-bold text-sm">إنشاء ✅</button>
+        </div></div>`;
+    }
+    box.innerHTML = h;
+  }catch(e){ box.innerHTML='<p class="text-red-400 text-sm">⚠️ فشل التحميل — تأكد من الاتصال</p>'; }
+}
+async function createAccount(){
+  const name=$('na-name').value.trim(), type=$('na-type').value;
+  if(!name) return toast('⚠️ اكتب اسم الحساب');
+  try{
+    await Api.createAccount({ name, type, owner_username:$('na-ou').value.trim()||undefined, owner_password:$('na-op').value||undefined });
+    toast('✅ اتعمل الحساب!'); await Api.me(); renderAccounts(); updateConnBadge();
+  }catch(e){ toast('⚠️ '+(AR_ERR[e.message]||'فشل الإنشاء')); }
+}
+async function addPartner(accountId){
+  const username=$('pu-'+accountId).value.trim(), password=$('pp-'+accountId).value;
+  if(!username||!password) return toast('⚠️ اكتب اسم الشريك وباسورده');
+  try{ await Api.addPartner({ account_id:accountId, username, password }); toast('✅ انضاف الشريك '+username); renderAccounts(); }
+  catch(e){ toast('⚠️ '+(AR_ERR[e.message]||'فشل الإضافة')); }
+}
+async function rmMember(accountId, userId){
+  if(!confirm('تحذف العضو ده من السلة؟')) return;
+  try{ await Api.removeMember(accountId, userId); toast('اتحذف ✅'); renderAccounts(); }
+  catch(e){ toast('⚠️ فشل الحذف'); }
+}
+async function resetPw(accountId, userId, username){
+  const np = prompt('باسورد جديد لـ '+username+' (6 حروف على الأقل):');
+  if(!np) return;
+  try{ await Api.resetPassword(accountId, userId, np); toast('🔑 اتصفّرت كلمة المرور'); }
+  catch(e){ toast('⚠️ '+(AR_ERR[e.message]||'فشل التصفير')); }
 }

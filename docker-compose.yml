@@ -1,0 +1,18 @@
+# تجربة محلية بالدوكر (البيانات تفضل محفوظة في volume اسمه floosy-data)
+services:
+  floosy:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - DATA_DIR=/app/data
+      - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+    volumes:
+      - floosy-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  floosy-data:

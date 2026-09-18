@@ -48,6 +48,8 @@ tailwind.config = {
       </div>
     </div>
     <div class="flex-1"></div>
+    <span id="connBadge" class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">...</span>
+    <span id="userChip" class="text-xs font-bold hidden md:inline"></span>
     <div class="hidden md:flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-xl px-3 py-2 w-72">
       <span>🔍</span>
       <input id="globalSearch" placeholder="دوّر على أي مصروف..." class="bg-transparent outline-none text-sm w-full" />
@@ -65,6 +67,7 @@ tailwind.config = {
     <button data-tab="reminders" class="tabBtn">⏰ التذكيرات <span id="reminderBadge" class="hidden bg-red-500 text-white text-[11px] px-1.5 rounded-full"></span></button>
     <button data-tab="debts" class="tabBtn">🤝 الديون</button>
     <button data-tab="reports" class="tabBtn">📊 التقارير</button>
+    <button data-tab="accounts" class="tabBtn">👥 الحسابات</button>
     <button data-tab="settings" class="tabBtn">⚙️ الإعدادات</button>
   </nav>
 </header>
@@ -227,6 +230,13 @@ tailwind.config = {
     </div>
   </section>
 
+  <!-- ===== الحسابات والشركاء ===== -->
+  <section id="tab-accounts" class="tabPage hidden">
+    <h2 class="text-2xl font-black mb-1">👥 الحسابات والشركاء</h2>
+    <p class="text-sm text-slate-500 mb-4">سلة مشتركة = نفس المصاريف للكل • حساب منفصل = مدير مستقل + حتى 5 شركاء</p>
+    <div id="accountsBox"></div>
+  </section>
+
   <!-- ===== الإعدادات ===== -->
   <section id="tab-settings" class="tabPage hidden">
     <h2 class="text-2xl font-black mb-4">⚙️ الإعدادات والبيانات</h2>
@@ -246,6 +256,15 @@ tailwind.config = {
         <label class="text-sm font-bold">بداية الشهر المالي (يوم)</label>
         <input id="setMonthStart" type="number" min="1" max="28" value="1" class="input mb-3" />
         <button onclick="saveSettings()" class="bg-brand-600 text-white px-5 py-2 rounded-xl font-bold w-full">💾 حفظ</button>
+      </div>
+      <div class="card">
+        <h3 class="font-black mb-3">🔑 كلمة المرور (سيرفر خاص)</h3>
+        <div id="cpBox">
+          <input id="cpOld" type="password" placeholder="الحالية" class="input mb-2" />
+          <input id="cpNew" type="password" placeholder="الجديدة (6+ حروف)" class="input mb-2" />
+          <button onclick="changeMyPassword()" class="bg-brand-600 text-white px-5 py-2 rounded-xl font-bold w-full">تغيير 🔑</button>
+        </div>
+        <button onclick="importLocalToCloud()" class="btn-ghost w-full mt-2">☁️ رفع بيانات هذا الجهاز للسلة</button>
       </div>
       <div class="card">
         <h3 class="font-black mb-3">💾 النسخ الاحتياطي</h3>
@@ -385,6 +404,21 @@ tailwind.config = {
 
 <div id="toast" class="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-[100] hidden bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-5 py-3 rounded-2xl font-bold shadow-2xl text-sm"></div>
 
+<!-- شاشة الدخول (السيرفر الخاص فقط) -->
+<div id="loginOverlay" class="hidden fixed inset-0 z-[90] bg-gradient-to-br from-brand-900 via-slate-900 to-fuchsia-900 flex items-center justify-center p-4">
+  <div class="bg-white dark:bg-slate-900 rounded-3xl p-8 w-full max-w-sm shadow-2xl text-center">
+    <div class="w-16 h-16 rounded-3xl bg-gradient-to-br from-brand-600 to-fuchsia-600 flex items-center justify-center text-white text-3xl font-black mx-auto mb-3">ف</div>
+    <h2 class="font-black text-2xl">فلوسي 🔒</h2>
+    <p class="text-xs text-slate-500 mb-5">منطقة خاصة — سجل الدخول (تتحفظ على جهازك للأبد)</p>
+    <input id="loginUser" placeholder="اسم المستخدم" class="input mb-2 text-center" autocomplete="username" />
+    <input id="loginPass" type="password" placeholder="كلمة المرور" class="input mb-2 text-center" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" />
+    <div id="loginMsg" class="text-xs text-red-500 font-bold min-h-[1.2rem] mb-2"></div>
+    <button onclick="doLogin()" class="bg-gradient-to-l from-brand-600 to-fuchsia-600 text-white font-black w-full py-3 rounded-xl">دخول ✅</button>
+    <p class="text-[11px] text-slate-400 mt-3">🔐 الدخول مرة واحدة — الجهاز يفضل فاكرك على طول</p>
+  </div>
+</div>
+
+<script src="api.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
