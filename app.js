@@ -310,7 +310,24 @@ function delDebt(id){ if(!confirm('تحذف الدين؟'))return; DB.debts=DB.d
 function addCategory(){ const n=$('newCatName').value.trim(); if(!n) return toast('⚠️ اكتب اسم الفئة'); DB.cats.push({id:uid(),name:n,icon:$('newCatIcon').value||'🏷️',type:'expense'}); $('newCatName').value='';$('newCatIcon').value=''; save(); renderAll(); }
 function delCategory(id){ if(DB.txs.some(t=>t.cat===id)) return toast('⚠️ الفئة مستخدمة في معاملات — احذفها من المعاملات الأول'); DB.cats=DB.cats.filter(c=>c.id!==id); save(); renderAll(); }
 function saveSettings(){ DB.settings.name=$('setName').value.trim(); DB.settings.currency=$('setCurrency').value; DB.settings.monthStart=parseInt($('setMonthStart').value)||1; save(); renderAll(); toast('💾 اتحفظت الإعدادات!'); }
-function wipeAll(){ if(!confirm('متأكد؟ هتمسح كل البيانات نهائيًا!'))return; DB=seedEmpty(); save(); renderAll(); toast('🗑️ اتمسح كل حاجة'); }
+function wipeAll(){ if(!confirm('هتمسح بيانات هذا الجهاز فقط (نسخة السيرفر هترجع تاني مع المزامنة). متأكد؟'))return; DB=seedEmpty(); save(); renderAll(); toast('🗑️ اتمسحت نسخة الجهاز'); }
+// مسح شامل من السيرفر: يمسح السلة من القاعدة + الطابور + الكاش — لا يرجع بعد Redeploy
+async function wipeServer(){
+  if(!REMOTE || !Api.activeId) return toast('الوضع المحلي — استخدم مسح الجهاز');
+  if(!confirm('هتمسح بيانات السلة دي من السيرفر نهائيًا (كل الأجهزة). متأكد؟')) return;
+  if(!confirm('تأكيد أخير: لا يمكن التراجع!')) return;
+  const empty = { txs:[], projects:[], budgets:[], reminders:[], debts:[], cats:DB.cats, settings:DB.settings };
+  try{
+    const r = await fetch('api/sync?account_id='+Api.activeId,{method:'PUT',headers:Api.headers(),body:JSON.stringify({data:empty})});
+    if(!r.ok) throw 0;
+    Api.outbox = Api.outbox.filter(e=>e.accountId!==Api.activeId);
+    Api.synced[Api.activeId] = JSON.stringify({txs:[],projects:[],budgets:[],reminders:[],debts:[],cats:empty.cats});
+    try{ localStorage.removeItem('floosy_cache_'+Api.activeId); }catch(e){}
+    DB = seedEmpty(); DB.cats = empty.cats; DB.settings = empty.settings;
+    save(); renderAll();
+    toast('🗑️ اتمسحت بيانات السلة من السيرفر نهائيًا');
+  }catch(e){ toast('⚠️ فشل المسح — تأكد من النت وحاول تاني'); }
+}
 
 // ---------- تصدير / استيراد / طباعة ----------
 function download(name, content, mime){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([content],{type:mime})); a.download=name; a.click(); }
