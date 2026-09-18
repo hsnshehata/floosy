@@ -526,14 +526,14 @@ function renderCharts(){
   const palette=['#7c3aed','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#14b8a6','#8b5cf6','#f97316','#64748b'];
   killChart('cat'); killChart('trend');
   const dark=document.documentElement.classList.contains('dark');
-  if($('catChart')) charts.cat=new Chart($('catChart'),{type:'doughnut',data:{labels,datasets:[{data:vals,backgroundColor:palette,borderWidth:0}]},options:{plugins:{legend:{display:false}},cutout:'62%'}});
+  if($('catChart')) charts.cat=new Chart($('catChart'),{type:'doughnut',data:{labels,datasets:[{data:vals,backgroundColor:palette,borderWidth:0}]},options:{maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'62%'}});
   $('catLegend').innerHTML=labels.map((l,i)=>{const tot=vals.reduce((a,b)=>a+b,0)||1;return `<div class="flex justify-between"><span><span style="color:${palette[i%10]}">●</span> ${esc(l)}</span><b>${fmt(vals[i])} (${(vals[i]/tot*100).toFixed(0)}%)</b></div>`}).join('')||'<p class="text-xs text-slate-400">مفيش مصاريف الشهر ده</p>';
   // ترند 6 شهور
   const months=[];const now=new Date();
   for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push(d.toISOString().slice(0,7));}
   const eD=months.map(m=>DB.txs.filter(t=>t.type==='expense'&&t.date.startsWith(m)).reduce((s,t)=>s+ +t.amount,0));
   const iD=months.map(m=>DB.txs.filter(t=>t.type==='income'&&t.date.startsWith(m)).reduce((s,t)=>s+ +t.amount,0));
-  if($('trendChart')) charts.trend=new Chart($('trendChart'),{type:'bar',data:{labels:months.map(m=>new Date(m+'-02').toLocaleDateString('ar-EG',{month:'short'})),datasets:[{label:'مصروف',data:eD,backgroundColor:'#f43f5e',borderRadius:8},{label:'دخل',data:iD,backgroundColor:'#10b981',borderRadius:8}]},options:{plugins:{legend:{labels:{color:dark?'#e2e8f0':'#475569'}}},scales:{x:{ticks:{color:dark?'#94a3b8':'#64748b'}},y:{ticks:{color:dark?'#94a3b8':'#64748b'}}}}});
+  if($('trendChart')) charts.trend=new Chart($('trendChart'),{type:'bar',data:{labels:months.map(m=>new Date(m+'-02').toLocaleDateString('ar-EG',{month:'short'})),datasets:[{label:'مصروف',data:eD,backgroundColor:'#f43f5e',borderRadius:8},{label:'دخل',data:iD,backgroundColor:'#10b981',borderRadius:8}]},options:{maintainAspectRatio:false,plugins:{legend:{labels:{color:dark?'#e2e8f0':'#475569'}}},scales:{x:{ticks:{color:dark?'#94a3b8':'#64748b'}},y:{ticks:{color:dark?'#94a3b8':'#64748b'}}}}});
 }
 function renderReports(){
   if(typeof Chart === 'undefined'){ $('topCats').innerHTML = 'الرسوم غير متاحة'; return; }
@@ -541,10 +541,10 @@ function renderReports(){
   const list=monthTxs().filter(t=>t.type==='expense');
   const by={};list.forEach(t=>by[t.cat]=(by[t.cat]||0)+ +t.amount);
   const palette=['#7c3aed','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#14b8a6'];
-  charts.rc=new Chart($('repCatChart'),{type:'pie',data:{labels:Object.keys(by).map(id=>catOf(id).name),datasets:[{data:Object.values(by),backgroundColor:palette}]},options:{plugins:{legend:{position:'bottom'}}}});
+  charts.rc=new Chart($('repCatChart'),{type:'pie',data:{labels:Object.keys(by).map(id=>catOf(id).name),datasets:[{data:Object.values(by),backgroundColor:palette}]},options:{maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}});
   const months=[];const now=new Date();
   for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);months.push(d.toISOString().slice(0,7));}
-  charts.rt=new Chart($('repTrendChart'),{type:'line',data:{labels:months,datasets:[{label:'المصروف',data:months.map(m=>DB.txs.filter(t=>t.type==='expense'&&t.date.startsWith(m)).reduce((s,t)=>s+ +t.amount,0)),borderColor:'#7c3aed',tension:.4,fill:true,backgroundColor:'rgba(124,58,237,.15)'}]},options:{plugins:{legend:{display:false}}}});
+  charts.rt=new Chart($('repTrendChart'),{type:'line',data:{labels:months,datasets:[{label:'المصروف',data:months.map(m=>DB.txs.filter(t=>t.type==='expense'&&t.date.startsWith(m)).reduce((s,t)=>s+ +t.amount,0)),borderColor:'#7c3aed',tension:.4,fill:true,backgroundColor:'rgba(124,58,237,.15)'}]},options:{maintainAspectRatio:false,plugins:{legend:{display:false}}}});
   const tot=Object.values(by).reduce((a,b)=>a+b,0)||1;
   $('topCats').innerHTML=Object.entries(by).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([c,v])=>{const ct=catOf(c);return `<div><div class="flex justify-between text-sm font-bold"><span>${ct.icon} ${esc(ct.name)}</span><span>${fmt(v)}</span></div><div class="prog mt-1"><div style="width:${(v/tot*100).toFixed(0)}%;background:#7c3aed"></div></div></div>`}).join('')||'—';
   const pb={};DB.txs.filter(t=>t.type==='expense'&&t.project).forEach(t=>pb[t.project]=(pb[t.project]||0)+ +t.amount);

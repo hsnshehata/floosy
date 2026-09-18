@@ -5,6 +5,9 @@ html,body{overflow-x:clip;max-width:100%}
 .stat-card{min-width:0;overflow:hidden}
 .card{min-width:0}
 .tx-row{min-width:0}
+/* حاوي الرسوم: نسبي + الكانفس لا يتجاوز العرض (منع تمدد الشبكة على الموبايل) */
+#tab-dashboard .h-56,#tab-dashboard .h-64,#tab-reports .h-56,#tab-reports .h-64{position:relative;min-width:0}
+#tab-dashboard canvas,#tab-reports canvas{max-width:100%!important}
 /* الموبايل: منع زوم iOS التلقائي + تصغير عناصر التنقل السفلي */
 @media (max-width:640px){
   .input,.input-sm{font-size:16px}
