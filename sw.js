@@ -1,5 +1,5 @@
 /* فلوسي — Service Worker: التطبيق يشتغل أوفلاين من على الموبايل */
-const CACHE = 'floosy-v1';
+const CACHE = 'floosy-v2';
 const SHELL = [
   './', 'index.html', 'manifest.json',
   'tw.css', 'styles.css', 'app.js', 'api.js',
